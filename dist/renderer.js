@@ -296,6 +296,8 @@ System.register(['lodash', 'moment', 'app/core/utils/kbn'], function(exports_1) 
           for (var y = 0; y < this.table.rows.length; y++) {
             var row = this.table.rows[y];
             var new_row = [];
+            console.log(y);
+            new_row.push(y);
             for (var i = 0; i < this.table.columns.length; i++) {
               new_row.push(this.formatColumnValue(i, row[i]));
             }

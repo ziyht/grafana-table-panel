@@ -6,7 +6,13 @@ export class TableRenderer {
   formatters: any[];
   colorState: any;
 
-  constructor(private panel, private table, private isUtc, private sanitize, private templateSrv) {
+  constructor(
+    private panel,
+    private table,
+    private isUtc,
+    private sanitize,
+    private templateSrv
+  ) {
     this.initColumns();
   }
 
@@ -198,7 +204,7 @@ export class TableRenderer {
     let row = this.table.rows[rowIndex];
     for (let i = 0; i < row.length; i++) {
       cell_variable = `__cell_${i}`;
-      scopedVars[cell_variable] = { value: row[i] };
+      scopedVars[cell_variable] = {value: row[i]};
     }
     return scopedVars;
   }
@@ -228,7 +234,10 @@ export class TableRenderer {
     // this hack adds header content to cell (not visible)
     var columnHtml = '';
     if (addWidthHack) {
-      columnHtml = '<div class="table-panel-width-hack">' + this.table.columns[columnIndex].title + '</div>';
+      columnHtml =
+        '<div class="table-panel-width-hack">' +
+        this.table.columns[columnIndex].title +
+        '</div>';
     }
 
     if (value === undefined) {
@@ -245,10 +254,13 @@ export class TableRenderer {
     if (column.style && column.style.link) {
       // Render cell as link
       var scopedVars = this.renderRowVariables(rowIndex);
-      scopedVars['__cell'] = { value: value };
+      scopedVars['__cell'] = {value: value};
 
       var cellLink = this.templateSrv.replace(column.style.linkUrl, scopedVars);
-      var cellLinkTooltip = this.templateSrv.replace(column.style.linkTooltip, scopedVars);
+      var cellLinkTooltip = this.templateSrv.replace(
+        column.style.linkTooltip,
+        scopedVars
+      );
       var cellTarget = column.style.linkTargetBlank ? '_blank' : '';
 
       cellClasses.push('table-panel-cell-link');
@@ -313,6 +325,8 @@ export class TableRenderer {
     for (var y = 0; y < this.table.rows.length; y++) {
       let row = this.table.rows[y];
       let new_row = [];
+      console.log(y);
+      new_row.push(y);
       for (var i = 0; i < this.table.columns.length; i++) {
         new_row.push(this.formatColumnValue(i, row[i]));
       }

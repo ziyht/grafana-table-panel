@@ -67,38 +67,167 @@ transformers['timeseries_to_columns'] = {
 
 transformers['timeseries_aggregations'] = {
   description: 'Time series aggregations',
+  columns_default: [
+    {text: 'Index', value: 'index'},
+    {text: 'Metric', value: 'metric'},
+    {text: 'Avg', value: 'avg'},
+    {text: 'Min', value: 'min'},
+    {text: 'Max', value: 'max'},
+    {text: 'Total', value: 'total'},
+    {text: 'Current', value: 'current'},
+    {text: 'Count', value: 'count'},
+  ],
+  columns_parsing: [],
   getColumns: function() {
-    return [
-      {text: 'Avg', value: 'avg'},
-      {text: 'Min', value: 'min'},
-      {text: 'Max', value: 'max'},
-      {text: 'Total', value: 'total'},
-      {text: 'Current', value: 'current'},
-      {text: 'Count', value: 'count'},
-    ];
+    let cols = this.columns_default.slice();
+
+    for (let i = 0; i < this.columns_parsing.length; i++)
+      cols.push(this.columns_parsing[i]);
+
+    return cols;
   },
   transform: function(data, panel, model) {
     let i, y;
-    model.columns.push({text: 'Metric'});
 
-    for (i = 0; i < panel.columns.length; i++) {
-      model.columns.push({text: panel.columns[i].text});
+    // model.columns.push({text: 'Metric'});
+
+    if (data.length > 0) {
+      // clear it
+      this.columns_parsing = [];
+
+      // get all column names
+      let _map;
+      eval('_map = ' + data[0].alias.replace(/=\"/g, ':"'));
+      for (var key in _map) {
+        this.columns_parsing.push({text: '__' + key, value: '__' + key});
+      }
     }
 
-    for (i = 0; i < data.length; i++) {
-      let series = new TimeSeries({
-        datapoints: data[i].datapoints,
-        alias: data[i].target,
-      });
+    let choosen_metric = 0;
+    for (i = 0; i < panel.columns.length; i++) {
+      model.columns.push({text: panel.columns[i].text});
 
-      series.getFlotPairs('connected');
-      let cells = [series.alias];
+      if (panel.columns[i].text.match('Metric')) {
+        choosen_metric = 1;
+      }
+    }
 
-      for (y = 0; y < panel.columns.length; y++) {
-        cells.push(series.stats[panel.columns[y].value]);
+    // every Metric is uniqe in timeseries_aggregations mode
+    // so do not need to merge value
+    if (choosen_metric) {
+      for (i = 0; i < data.length; i++) {
+        let series = new TimeSeries({
+          datapoints: data[i].datapoints,
+          alias: data[i].target,
+        });
+
+        series.getFlotPairs('connected');
+        series.stats.index = i + 1;
+        series.stats.metric = data[i].alias;
+
+        let _map;
+        eval('_map = ' + data[i].alias.replace(/=\"/g, ':"'));
+        for (var key in _map) {
+          series.stats['__' + key] = _map[key];
+        }
+
+        let cells = [];
+        for (y = 0; y < panel.columns.length; y++) {
+          cells.push(series.stats[panel.columns[y].value]);
+        }
+
+        model.rows.push(cells);
+      }
+    } else {
+      // new: auto merged by choosen col
+      // get choosen cols
+      let cols = [];
+      for (i = 0; i < panel.columns.length; i++) {
+        if (panel.columns[i].text.match(/^__.*/)) {
+          cols.push(panel.columns[i].text.replace(/^__/, ''));
+        }
       }
 
-      model.rows.push(cells);
+      // merge data
+      let keys = [];
+      let rows = {};
+      for (let i = 0, datalen = data.length; i < datalen; i++) {
+        let labels;
+        eval('labels = ' + data[i].alias.replace(/=\"/g, ':"'));
+
+        let key = '';
+        for (var j = 0, len = cols.length; j < len; j++) {
+          key = key + labels[cols[j]] + '|';
+        }
+
+        let row = rows[key];
+        if (row == undefined) {
+          row = {};
+
+          row.lables = labels;
+          row.metrics = [];
+
+          row.metrics.push(data[i]);
+
+          keys.push(key);
+          rows[key] = row;
+        } else {
+          row.metrics.push(data[i]);
+        }
+      }
+
+      for (let i = 0, keys_cnt = keys.length; i < keys_cnt; i++) {
+        let row = rows[keys[i]];
+
+        let series_arr = [];
+        let count = 0;
+        let total = 0;
+        let min = null;
+        let max = null;
+        let current = 0;
+        for (let i = 0, metrics_cnt = row.metrics.length; i < metrics_cnt; i++) {
+          let series = new TimeSeries({
+            datapoints: row.metrics[i].datapoints,
+            alias: row.metrics[i].alias,
+          });
+
+          series.getFlotPairs('connected');
+
+          count += series.stats.count;
+          total += series.stats.total;
+          current += series.stats.current;
+
+          if (min == null || min > series.stats.min) min = series.stats.min;
+          if (max == null || max < series.stats.max) max = series.stats.max;
+
+          series_arr.push(series);
+        }
+
+        let result;
+        result = {};
+
+        result.min = min;
+        result.max = max;
+        result.total = total;
+        result.count = count;
+        result.avg = total / count;
+        result.current = current;
+
+        result.index = i + 1;
+        // result.metrics = keys[i] // no need it, we are sure it will not get metrics in this case
+
+        let labels = row.lables;
+        for (var key in labels) {
+          result['__' + key] = labels[key];
+        }
+
+        let cells = [];
+        for (y = 0; y < panel.columns.length; y++) {
+          cells.push(result[panel.columns[y].value]);
+        }
+
+        model.rows.push(cells);
+      }
     }
   },
 };

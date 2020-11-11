@@ -27,7 +27,8 @@
     "lodash": "^4.17.4",
     "moment": "^2.18.1",
     "q": "^1.5.0",
-    "systemjs": "^0.19.47"
+    "systemjs": "^0.19.47",
+    "yarn": "^1.21.1"
   },
   "devDependencies": {
     "@types/lodash": "^4.14.106",
